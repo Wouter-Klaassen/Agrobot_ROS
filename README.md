@@ -21,7 +21,7 @@ git clone https://github.com/Wouter-Klaassen/Agrobot.git
 cd ..
 rosdep install -i --from-path src --rosdistro humble -y
 ```
-3. build workspace
+4. build workspace
 ```
 colcon build
 ```
