@@ -8,8 +8,8 @@ source /opt/ros/humble/setup.sh
 ```
 1. create workspace
 ```
-mkdir example_ws/src
-cd example_ws/src
+mkdir example_ws
+cd example_ws
 ```
 2. clone git content
 
@@ -18,10 +18,9 @@ git clone https://github.com/Wouter-Klaassen/Agrobot.git
 ```
 3. install dependencies
 ```
-cd ..
 rosdep install -i --from-path src --rosdistro humble -y
 ```
-3. build workspace
+4. build workspace
 ```
 colcon build
 ```
