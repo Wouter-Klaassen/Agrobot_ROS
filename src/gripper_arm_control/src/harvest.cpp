@@ -5,6 +5,6 @@ int main(int argc, char ** argv)
   (void) argc;
   (void) argv;
 
-  printf("hello world gripper_arm_control package\n");
+  printf("hello world harvest package\n");
   return 0;
 }
