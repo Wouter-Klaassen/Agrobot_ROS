@@ -2,6 +2,7 @@ import rclpy
 from rclpy.node import Node
 from std_msgs.msg import String
 from rclpy.executors import MultiThreadedExecutor
+from geometry_msgs.msg import Point32
 
 class CoordinatorNode(Node):
     def __init__(self):
@@ -13,9 +14,14 @@ class CoordinatorNode(Node):
         self.publisher = self.create_publisher(String, 'GoToPos', 10)
         self.subscription = self.create_subscription(String, 'HarvestCrops', self.listener_callback, 10)
         self.publisher = self.create_publisher(String, 'HarvestCrops', 10)
+        self.subscription = self.create_subscription(Point32, 'xyz', self.listener_callback_point32, 10)
+
 
     def listener_callback(self, msg):
         self.get_logger().info(f"received: {msg.data}")
+
+    def listener_callback_point32(self, msg):
+        self.get_logger().info(f"received: {msg.x} {msg.y} {msg.z}")
 
 class MoveNode(Node):
     def __init__(self):
