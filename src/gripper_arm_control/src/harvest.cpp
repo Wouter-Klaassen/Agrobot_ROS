@@ -24,29 +24,29 @@ class Harvest : public rclcpp::Node
       xyz_publisher_ = this->create_publisher<geometry_msgs::msg::Point32>("arm_pos", 10);
 
       // Subscribers
-      subscription_ = this->create_subscription<std_msgs::msg::String>(
-        "/chatter", 10, std::bind(&Harvest::topic_callback, this, _1));
-      timer_ = this->create_wall_timer(
-      2000ms, std::bind(&Harvest::timer_callback, this));
+      servo_subscription_ = this->create_subscription<std_msgs::msg::String>(
+        "/chatter", 10, std::bind(&Harvest::servo_callback, this, _1));
+      xyz_subscription_ = this->create_subscription<geometry_msgs::msg::Point32>(
+        "/xyz", 10, std::bind(&Harvest::xyz_callback, this, _1));
+      // timer_ = this->create_wall_timer(
+      // 2000ms, std::bind(&Harvest::timer_callback, this));
       
     }
 
   private:
-    void timer_callback()
+    void xyz_callback(const geometry_msgs::msg::Point32 & msg) const
     {
       auto message = geometry_msgs::msg::Point32();
-      message.x = 1;
-      message.y = 2;
-      message.z = 3;
-      RCLCPP_INFO(this->get_logger(), "Publishing Point32: x=%.2f, y=%.2f, z=%.2f", 
-        message.x, message.y, message.z);
+      message.x = msg.x;
+      message.y = msg.y;
+      message.z = msg.z;
       xyz_publisher_->publish(message);
     }
 
     // TODO
     // use Booleans instead of strings
     // expand to full functionality
-    void topic_callback(const std_msgs::msg::String & msg) const {
+    void servo_callback(const std_msgs::msg::String & msg) const {
       auto message = std_msgs::msg::Int32();
       if(msg.data == "open"){
         RCLCPP_INFO(this->get_logger(), "If I heard: '%s'", msg.data.c_str());
@@ -70,7 +70,8 @@ class Harvest : public rclcpp::Node
     rclcpp::Publisher<geometry_msgs::msg::Point32>::SharedPtr xyz_publisher_;
 
     // Subscribers
-    rclcpp::Subscription<std_msgs::msg::String>::SharedPtr subscription_;
+    rclcpp::Subscription<std_msgs::msg::String>::SharedPtr servo_subscription_;
+    rclcpp::Subscription<geometry_msgs::msg::Point32>::SharedPtr xyz_subscription_;
     int count_;
 };
 
