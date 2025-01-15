@@ -25,3 +25,34 @@ rosdep install -i --from-path src --rosdistro humble -y
 colcon build
 ```
 5. enjoy :)
+
+
+## develop:
+
+1. create workspace
+```
+mkdir example_ws
+cd example_ws
+```
+2. initialize git
+```
+git init
+```
+3. add repository
+```
+git remote add origin https://github.com/Wouter-Klaassen/Agrobot.git
+git pull
+git checkout main
+```
+4. switch to your new branch
+```
+git checkout -b your/branch
+```
+5. push new content
+```
+git add .
+git commit -m your_message
+git push
+```
+### Recomandations:
+- use a github gui such as gitkraken, github desktop
