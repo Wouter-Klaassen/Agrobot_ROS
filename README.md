@@ -27,7 +27,7 @@ colcon build
 5. enjoy :)
 
 
-## develop:
+## develop (Not available for non-contributers):
 
 1. create workspace
 ```
@@ -54,5 +54,5 @@ git add .
 git commit -m your_message
 git push
 ```
-### Recomandations:
+### Recommendations:
 - use a github gui such as gitkraken, github desktop
