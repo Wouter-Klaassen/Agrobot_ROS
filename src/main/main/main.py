@@ -62,8 +62,16 @@ def main():
     executor.add_node(UWBNode())
     executor.add_node(EmergencyStopNode())
     executor.add_node(HarvestNode())
-    executor.spin()
-    rclpy.shutdown()
+
+    try:
+        executor.spin()
+    finally:
+        CoordinatorNode.destroy_node()
+        MoveNode.destroy_node()
+        UWBNode.destroy_node()
+        EmergencyStop.destroy_node()
+        HarvestNode.destroy_node()
+        rclpy.shutdown()
 
 
 if __name__ == "__main__":
