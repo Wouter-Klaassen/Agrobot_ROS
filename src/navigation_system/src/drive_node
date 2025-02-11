@@ -1,0 +1,244 @@
+#! /usr/bin/env python3
+
+# =====================
+# Author: Anil Ozdemir
+# Created on: 01-01-2025
+# Description: Class to control the drive and steering of the Agrobot Gantry
+# =====================
+
+import rclpy
+from rclpy.node import Node
+from std_msgs.msg import Bool, Int8, String, Empty
+from geometry_msgs.msg import PoseStamped, Point
+
+class Drive(Node):
+
+    # Constructor of the Drive class
+    def __init__(self):
+        super().__init__('agrobot_drive')
+
+        # Properties for the locations in the playing field (distances in meters)
+        self.POSITION_P1 = Point(x=2.5 - 0.15, y=1.25)
+        self.POSITION_P2 = Point(x=2.5 - 0.15, y=5.75)
+        self.POSITION_P3 = Point(x=1.0 + 0.1, y=5.75)
+        self.POSITION_P4 = Point(x=1.0 + 0.1, y=1.25)
+        self.POSITION_B11 = Point(x=2.5, y=2.5 + 0.20)
+        self.POSITION_B11r2 = Point(x=2.5, y=2.5 + 0.20 + 0.3)
+        self.POSITION_B11r3 = Point(x=2.5, y=2.5 + 0.20 + 0.6)
+        self.POSITION_B12 = Point(x=2.5, y=3.5 + 0.20)
+        self.POSITION_B12r2 = Point(x=2.5, y=3.5 + 0.20 + 0.3)
+        self.POSITION_B12r3 = Point(x=2.5, y=3.5 + 0.20 + 0.6)
+        self.POSITION_B13 = Point(x=2.5, y=4.5 + 0.20)
+        self.POSITION_B21 = Point(x=1.0, y=2.5 - 0.40)
+        self.POSITION_B22 = Point(x=1.0, y=3.5 - 0.40)
+        self.POSITION_B22r2 = Point(x=1.0, y=3.5 - 0.40 - 0.3)
+        self.POSITION_B22r3 = Point(x=1.0, y=3.5 - 0.40 - 0.6)
+        self.POSITION_B23 = Point(x=1.0, y=4.5 - 0.40)
+        self.POSITION_B23r2 = Point(x=1.0, y=4.5 - 0.40 - 0.3)
+        self.POSITION_B23r3 = Point(x=1.0, y=4.5 - 0.40 - 0.6)
+
+        # Properties for subscribers callbacks
+        self.object_detected = False
+        self.arduino_steering_state = 0
+
+        # Properties for positions of the UWB modules
+        self.position_uwb_left = Point()
+        self.position_uwb_right = Point()
+
+        # Properties for the center position of the Agrobot Gantry
+        self.position_agrobot = Point()
+        self.position_agrobot.x = (self.position_uwb_left.x + self.position_uwb_right.x) / 2
+        self.position_agrobot.y = (self.position_uwb_left.y + self.position_uwb_right.y) / 2
+
+        # Initialise subscribers
+        self.create_subscription(Bool, '/agrobot_object_detection/object_detected', self.object_detected_callback, 10)
+        self.create_subscription(Int8, '/agrobot_steering/arduino_state', self.arduino_steering_state_callback, 10)
+        self.create_subscription(PoseStamped, '/dwm1001/tag/tagLeft/position', self.uwb_left_callback, 10)
+        self.create_subscription(PoseStamped, '/dwm1001/tag/tagRight/position', self.uwb_right_callback, 10)
+        self.create_subscription(String, '/drive_to_position', self.drive_to_position_callback, 10)
+        self.create_subscription(Empty, '/initialise_wheels', self.initialise_wheels_callback, 10)
+
+        # Initialise publishers
+        self.arduino_drive_command_publisher = self.create_publisher(Int8, '/agrobot_drive/arduino_command', 10)
+        self.arduino_steering_command_publisher = self.create_publisher(Int8, '/agrobot_steering/arduino_command', 10)
+        self.initialise_wheels_done_publisher = self.create_publisher(Empty, '/initialise_wheels_done', 10)
+        self.driving_done_publisher = self.create_publisher(Empty, '/driving_done', 10)
+
+        # Determ if the ultrasoon sensors should stop the agrobot when something is detecteds
+        self.ultrasoon_aan = True
+
+    # Drive the Agrobot Gantry forward until the target position is reached
+    def drive_forward_to_target(self, target_position):
+        target_reached = False
+        orientation = self.get_orientation()
+        direction = 'forward'
+        ultrasoon_trigger = False
+
+        # Publish in the Arduino command topic to start driving forward
+        if(orientation == 'north'):
+            if(target_position.y <= self.position_uwb_left.y):
+                self.publish_arduino_drive_command(2)
+                direction = 'backward'
+            else:
+                self.publish_arduino_drive_command(1)
+                direction = 'forward'
+        elif(orientation == 'south'):
+            if(target_position.y >= self.position_uwb_left.y):
+                self.publish_arduino_drive_command(2)
+                direction = 'backward'
+            else:
+                self.publish_arduino_drive_command(1)
+                direction = 'forward'
+        elif(orientation == 'east'):
+            if(target_position.x <= self.position_uwb_left.x):
+                self.publish_arduino_drive_command(2)
+                direction = 'backward'
+            else:
+                self.publish_arduino_drive_command(1)
+                direction = 'forward'
+        elif(orientation == 'west'):
+            if(target_position.x >= self.position_uwb_left.x):
+                self.publish_arduino_drive_command(2)
+                direction = 'backward'
+            else:
+                self.publish_arduino_drive_command(1)
+                direction = 'forward'
+
+        # Drive until the target position is reached
+        while(not target_reached and rclpy.ok()):
+            if(self.object_detected and self.ultrasoon_aan):
+                self.publish_arduino_drive_command(0)
+                ultrasoon_trigger = True
+            elif(ultrasoon_trigger and direction == 'forward'):
+                self.publish_arduino_drive_command(1)
+                ultrasoon_trigger = False
+            elif(ultrasoon_trigger and direction == 'backward'):
+                self.publish_arduino_drive_command(2)
+                ultrasoon_trigger = False
+            else:
+                # Update the position of the Agrobot Gantry
+                self.position_agrobot.x = self.position_uwb_left.x
+                self.position_agrobot.y = self.position_uwb_left.y
+
+                if(direction == 'forward'):
+                    if(orientation == 'north'):
+                        target_reached = self.position_agrobot.y >= target_position.y
+                    elif(orientation == 'south'):
+                        target_reached = self.position_agrobot.y <= target_position.y
+                    elif(orientation == 'west'):
+                        target_reached = self.position_agrobot.x <= target_position.x
+                    elif(orientation == 'east'):
+                        target_reached = self.position_agrobot.x >= target_position.x
+                elif(direction == 'backward'):
+                    if(orientation == 'north'):
+                        target_reached = self.position_agrobot.y <= target_position.y
+                    elif(orientation == 'south'):
+                        target_reached = self.position_agrobot.y >= target_position.y
+                    elif(orientation == 'west'):
+                        target_reached = self.position_agrobot.x >= target_position.x
+                    elif(orientation == 'east'):
+                        target_reached = self.position_agrobot.x <= target_position.x
+
+        # Publish in the Arduino command topic to stop the Agrobot Gantry
+        self.publish_arduino_drive_command(0)
+
+    # Drive the Agrobot Gantry to the next row of vegetables
+    def drive_to_next_row(self):
+        orientation = self.get_orientation()
+        target_position = Point()
+        target_position.x = self.position_agrobot.x
+
+        if(orientation == 'north'):
+            target_position.y = self.position_agrobot.y + 0.3
+        elif(orientation == 'south'):
+            target_position.y = self.position_agrobot.y - 0.3
+
+        self.drive_forward_to_target(target_position)
+
+    # Turn the Agrobot Gantry 90 degrees
+    def turn(self, turn_direction, turn_orientation):
+        ultrasoon_trigger = False
+        if(turn_direction == 'left'):
+            turn_command = 3
+        elif(turn_direction == 'right'):
+            turn_command = 4
+
+        # Make the wheels turn to the steering position
+        self.publish_arduino_steering_command(3)
+        self.get_logger().info('Turning wheels to steering position')
+        self.get_clock().sleep_for(2.0)
+
+        # Wait until the steering is done
+        while(self.arduino_steering_state != 2 and rclpy.ok()):
+            self.get_logger().info('Waiting for steering')
+            self.get_clock().sleep_for(1.0)
+
+        # Send turn command to Arduino
+        self.publish_arduino_drive_command(turn_command)
+        self.get_logger().info('Turn Agrobot Gantry')
+        self.get_clock().sleep_for(2.0)
+
+        # Wait until turn is completed
+        if(turn_orientation == 'north'):
+            while(self.position_agrobot.x <= 1.5 and rclpy.ok()):
+                self.get_logger().info('Waiting for turn completion')
+                self.get_clock().sleep_for(1.0)
+
+        elif(turn_orientation == 'south'):
+            while(self.position_agrobot.x >= 1.0 and rclpy.ok()):
+                self.get_logger().info('Waiting for turn completion')
+                self.get_clock().sleep_for(1.0)
+
+        # Stop turning
+        self.publish_arduino_drive_command(0)
+        self.get_logger().info('Stop turn')
+
+    # Publish to Arduino to start driving
+    def publish_arduino_drive_command(self, command):
+        msg = Int8()
+        msg.data = command
+        self.arduino_drive_command_publisher.publish(msg)
+
+    # Publish to Arduino to start steering
+    def publish_arduino_steering_command(self, command):
+        msg = Int8()
+        msg.data = command
+        self.arduino_steering_command_publisher.publish(msg)
+
+    def get_orientation(self):
+        # Calculate the orientation based on the UWB sensor data
+        return "north"  # Dummy value; should be determined from UWB positions
+
+    # Subscribers for position data
+    def uwb_left_callback(self, msg):
+        self.position_uwb_left = msg.pose.position
+
+    def uwb_right_callback(self, msg):
+        self.position_uwb_right = msg.pose.position
+
+    # Callback function for object detection state
+    def object_detected_callback(self, msg):
+        self.object_detected = msg.data
+
+    # Callback function for steering state
+    def arduino_steering_state_callback(self, msg):
+        self.arduino_steering_state = msg.data
+
+    # Callback function for drive to position command
+    def drive_to_position_callback(self, msg):
+        # Logic for driving to a specified position
+        self.get_logger().info(f"Drive to position: {msg.data}")
+
+    # Callback function for initialisation of wheels
+    def initialise_wheels_callback(self, msg):
+        self.initialise_wheels_done_publisher.publish(Empty())
+
+def main(args=None):
+    rclpy.init(args=args)
+    drive = Drive()
+    rclpy.spin(drive)
+    drive.destroy_node()
+    rclpy.shutdown()
+
+if __name__ == '__main__':
+    main()
