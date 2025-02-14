@@ -2,6 +2,7 @@ from tkinter.scrolledtext import ScrolledText
 import rclpy
 from rclpy.node import Node
 from std_msgs.msg import String
+from std_msgs.msg import Bool
 import tkinter as tk
 from geometry_msgs.msg import Point32
 
@@ -11,6 +12,7 @@ class GUINode(Node):
         self.subscription = self.create_subscription(String, 'cmd', self.listener_callback, 10)
         self.string_publisher = self.create_publisher(String, 'cmd', 10)
         self.point32_publisher = self.create_publisher(Point32, 'xyz', 10)
+        self.bool_publisher = self.create_publisher(Bool, 'gripper',10)
 
     def listener_callback(self, msg):
         # Verkrijg de naam van het topic
@@ -25,8 +27,6 @@ class GUINode(Node):
         self.get_logger().info(f"Published string: {msg.data} in {topic_name}")
 
     def publish_point32(self, x: float, y: float, z: float):
-
-
       # Maak een Point32 bericht met de opgegeven x waarde en stel y en z in op 0
         msg = Point32()
         msg.x = x
@@ -89,6 +89,15 @@ class GUI:
         self.send_button = tk.Button(self.gantry_frame, text="Send", command=self.display_message)
         self.send_button.grid(row=3, column=1, padx=10, pady=10)
 
+        self.initiate_button = tk.Button(self.gantry_frame, text="Gripper dicht", command=self.send_initiate)
+        self.initiate_button.grid(row=3, column=0, padx=10, pady=10)
+
+        self.gripper_open = tk.Button(self.gantry_frame, text="Gripper open", command=self.send_initiate)
+        self.gripper_open.grid(row=4, column=0, padx=10, pady=10)
+
+        self.gripper_close = tk.Button(self.gantry_frame, text="initiate", command=self.send_initiate)
+        self.gripper_close.grid(row=4, column=1, padx=10, pady=10)
+
         #rupsband knoppen
         self.button_up = tk.Button(self.rups_frame, text="↑", command=self.send_up)
         self.button_up.grid(row=0, column=1, padx=10, pady=10)
@@ -111,6 +120,9 @@ class GUI:
 
     def send_up(self):
         self.ros_publisher.publish_string("up")
+
+    def send_initiate(self):
+        self.ros_publisher.publish_string("initiate")
 
     def send_down(self):
         self.ros_publisher.publish_string("down")
